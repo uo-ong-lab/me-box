@@ -38,11 +38,12 @@ __error__(char *pcFilename, uint32_t ui32Line)
 
 #define NUM_SSI_DATA 8
 
-uint32_t STEP_SIZE = 100;
-uint32_t low_bound = 1000;
-uint32_t high_bound = 100000;
+uint32_t STEP_SIZE = 1000;
+uint32_t low_bound = 10000;
+uint32_t high_bound = 1000000;
 uint32_t f_reg;
 uint32_t i;
+uint32_t frequencyRegister[2][1000];
 uint32_t rows;
 
 void
@@ -66,74 +67,39 @@ PinConfig(){
 
 }
 
-int
-FreqReg(uint32_t STEP_SIZE, uint32_t low_bound, uint32_t i){
-
-    f_reg = (int)(((low_bound + (STEP_SIZE * i)) * (2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2)) / 16000000);
-    //used the 2*2... to get a non floating point number that pow(2, 28) gave. Keeps the processing power usage down
-    return f_reg;
-}
-
-int
-MSB(uint32_t STEP_SIZE, uint32_t low_bound, uint32_t i){
-
-    return (int)((FreqReg(STEP_SIZE, low_bound, i) * (2*2*2*2*2*2*2*2*2*2*2*2*2*2)) + 16384);
-    //MSB
-    //FREQ_REG_BITS[i][1] = 16384 + (FreqReg(STEP_SIZE, low_bound, i) / 2*2*2*2*2*2*2*2*2*2*2*2*2*2) is getting the top 14 bits
-    //of the frequency register by excluding the bottom 14 by dividing by 2^14. This math was tested beforehand and it works out well
-}
-
-int
-LSB(uint32_t STEP_SIZE, uint32_t low_bound, uint32_t i){
-
-    return ((FreqReg(STEP_SIZE, low_bound, i) % 16384) + 16384); // 0100000000000000 -> 16384
-    // LSB
-}
-
-int*
+void
 FreqRegBits(){
     uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
-    uint32_t frequencyRegister[2][rows];
     uint32_t reg;
     for(i = 0; i < rows; i++){
-        reg = (int)(((low_bound + (STEP_SIZE * i)) * pow(2,28))/16000000);
+        reg = (int)((low_bound + (STEP_SIZE * i)) * (5.368709));
+        //reg = (int)(((low_bound + (STEP_SIZE * i)) * pow(2,28))/50000000);
         frequencyRegister[0][i] = (int)((reg % 16384) + 16384);
-        frequencyRegister[1][i] = (int)((reg / pow(2,14)) + 16384);
+        frequencyRegister[1][i] = (int)((reg / (2*2*2*2*2*2*2*2*2*2*2*2*2*2)) + 16384);
     }
-    return frequencyRegister;
 
 }
 
 void
-SineWavePulse(uint32_t freqRegister[][]){
+SineWavePulse(){
     uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
-    /*uint32_t FREQ_REG_BITS[ROWS][2];
-    //uint32_t row;
-    //for(row = 0; row < ROWS; row++){
-    //    FREQ_REG_BITS[row][0] = LSB(STEP_SIZE, low_bound, i);
-    //    FREQ_REG_BITS[row][1] = MSB(STEP_SIZE, low_bound, i);
-    //}
     //highest frequency that can be in the first 14 bits of the frequency register is 976.5 Hz which is below the predetermined start
     //frequency of 1000 Hz. The lower 14 bits will still be programmed in but there will be logic to determine if they're needed or not.
     //The chip writes LSB in the first write and then MSB in the second write
-    //}
-    //Generates the wave and keeps it going for a set duration and then turns it off*/
     for(i = 0; i < rows; i++){
 
-        uint32_t MostSB = freqRegister[1][i];
-        uint32_t LeastSB = freqRegister[0][i];
         uint32_t j = 0;
         while(j < 1){
             //SSIDataPut(SSI0_BASE, i);
             SSIDataPut(SSI0_BASE, 0x2100);
-            //SSIDataPut(SSI0_BASE, LeastSB);
-            SSIDataPut(SSI0_BASE, MostSB);
-            //SSIDataPut(SSI0_BASE, 0xC000);
-            //SSIDataPut(SSI0_BASE, 0x2000);
+            SSIDataPut(SSI0_BASE, frequencyRegister[1][i]);
+            SSIDataPut(SSI0_BASE, frequencyRegister[0][i]);
+            SSIDataPut(SSI0_BASE, 0xC000);
+            SSIDataPut(SSI0_BASE, 0x2000);
             while(SSIBusy(SSI0_BASE))
                 {
                 }
-            SysCtlDelay(16000);
+            SysCtlDelay(400000);
 
             j = 1;
         }
@@ -144,30 +110,37 @@ uint32_t duration;
 uint32_t voltage1 = 0;
 uint32_t voltage2 = 1;
 uint32_t voltage3 = 3;
+uint32_t voltage4 = 4;
 uint32_t refVoltage = 5;
-uint32_t voltCode[3];
+uint32_t voltCode[4];
 
 void
-voltCodeGenerator(uint32_t voltage1, uint32_t voltage2, uint32_t voltage3, uint32_t refVoltage){
+voltCodeGenerator(uint32_t voltage1, uint32_t voltage2, uint32_t voltage3, uint32_t voltage4, uint32_t refVoltage){
 
     voltCode[0] = (int)((voltage1 * 256)/refVoltage);
     voltCode[1] = (int)((voltage2 * 256)/refVoltage);
     voltCode[2] = (int)((voltage3 * 256)/refVoltage);
+    voltCode[3] = (int)((voltage4 * 256)/refVoltage);
 
-    //return voltCode;
 }
 
 void
 DCVoltage(){
-    uint32_t voltbits1 = voltCode[0];
-    uint32_t voltbits2 = voltCode[1];
-    uint32_t voltbits3 = voltCode[2];
+    uint32_t location1 = (int)(pow(2, 0));
+    uint32_t location2 = (int)(pow(2, 9));
+    uint32_t location3 = (int)(pow(2, 10));
+    uint32_t location4 = (int)(pow(2, 9) + pow(2, 10));
+    uint32_t voltbits1 = voltCode[0] + location1;
+    uint32_t voltbits2 = voltCode[1] + location2;
+    uint32_t voltbits3 = voltCode[2] + location3;
+    uint32_t voltbits4 = voltCode[3] + location4;
     uint32_t k = 0;
     GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_6, 0b1);
     while(k < 1){
         SSIDataPut(SSI1_BASE, voltbits1);
         SSIDataPut(SSI1_BASE, voltbits2);
         SSIDataPut(SSI1_BASE, voltbits3);
+        SSIDataPut(SSI1_BASE, voltbits4);
         k = 1;
     }
     GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_6, 0b0);
@@ -183,14 +156,15 @@ int main(void){
 
     PeriphEnable();
     PinConfig();
+    FreqRegBits();
     SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
     SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,16);
     SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,11);
     SSIEnable(SSI0_BASE);
     SSIEnable(SSI1_BASE);
-    voltCodeGenerator(voltage1, voltage2, voltage3, refVoltage);
+    voltCodeGenerator(voltage1, voltage2, voltage3, voltage4, refVoltage);
     DCVoltage();
     SysCtlDelay(100000);
-    SineWavePulse(FreqRegBits());
+    SineWavePulse();
 
 }
