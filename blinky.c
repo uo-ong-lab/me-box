@@ -40,11 +40,15 @@ __error__(char *pcFilename, uint32_t ui32Line)
 
 uint32_t STEP_SIZE = 1000;
 uint32_t low_bound = 10000;
-uint32_t high_bound = 1000000;
+uint32_t high_bound = 2000000;
 uint32_t f_reg;
 uint32_t i;
 uint32_t frequencyRegister[2][1000];
 uint32_t rows;
+uint32_t ADCValue;
+uint32_t lowVoltage;
+uint32_t midVoltage;
+uint32_t highVoltage;
 
 void
 PeriphEnable(){
@@ -52,6 +56,7 @@ PeriphEnable(){
     SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI1);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
 }
 
 void
@@ -62,9 +67,17 @@ PinConfig(){
     GPIOPinConfigure(GPIO_PD0_SSI1CLK);
     GPIOPinConfigure(GPIO_PD1_SSI1FSS);
     GPIOPinConfigure(GPIO_PD3_SSI1TX);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_4);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_5);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_6);
     GPIOPinTypeSSI(GPIO_PORTA_BASE, GPIO_PIN_5|GPIO_PIN_3|GPIO_PIN_2);
     GPIOPinTypeSSI(GPIO_PORTD_BASE, GPIO_PIN_3|GPIO_PIN_1|GPIO_PIN_0);
 
+}
+
+void
+DataSend(uint32_t data1, uint32_t data2, uint32_t data3){
+    //sends the pulse numbers from the pulse counter, through UART, to the computer
 }
 
 void
@@ -78,6 +91,42 @@ FreqRegBits(){
         frequencyRegister[1][i] = (int)((reg / (2*2*2*2*2*2*2*2*2*2*2*2*2*2)) + 16384);
     }
 
+}
+
+int
+ADCReader(){
+    //reads the "peak" value from the signal response to determine when to cut off the pulse counting
+    uint32_t ammount; //the cut off value
+    uint32_t value; //the value given by the ADC
+    if(value > ammount){
+        return 0;
+    }
+    else if(value <= ammount){
+        return 1;
+    }
+}
+
+int
+PulseCounter(){
+    highVoltage = 0;
+    midVoltage = 0;
+    lowVoltage = 0;
+    while(ADCReader() == 0){
+        uint32_t low = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
+        uint32_t mid = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_5);
+        uint32_t high = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_6);
+        if((high & GPIO_PIN_6)){
+            highVoltage += 1;
+        }
+        else if((mid & GPIO_PIN_5)){
+            midVoltage += 1;
+        }
+        else if((low & GPIO_PIN_4)){
+            lowVoltage += 1;
+        }
+    }
+    DataSend(highVoltage, midVoltage, lowVoltage);
+    return 1;
 }
 
 void
@@ -99,14 +148,14 @@ SineWavePulse(){
             while(SSIBusy(SSI0_BASE))
                 {
                 }
-            SysCtlDelay(400000);
+            SysCtlDelay(160000);
+            SSIDataPut(SSI0_BASE, 0b00000100000000);
+            j = PulseCounter();
 
-            j = 1;
         }
     }
 }
 
-uint32_t duration;
 uint32_t voltage1 = 0;
 uint32_t voltage2 = 1;
 uint32_t voltage3 = 3;
