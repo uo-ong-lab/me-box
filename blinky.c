@@ -61,12 +61,6 @@ uint32_t voltCode[4];
 //https://engineering.purdue.edu/ece477/Archive/2014/Spring/S14-Grp1/docs/software/LM4F-LaunchPad-11%20-%20SPI.pdf
 //The bitwise reverse function was taken out because it is not needed.
 
-/* Pins used:
- * A0, A1, A2, A3, A5
- * C4, C5, C6
- * D0, D1, D3
- */
-
 void
 PeriphEnable(void){
     SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
@@ -74,29 +68,31 @@ PeriphEnable(void){
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+    SysCtlPeripheralReset(SYSCTL_PERIPH_ADC0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 }
 
 void
 PinConfig(void){
-    //GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
-    //GPIOPinConfigure(GPIO_PA0_U0RX);
-    //GPIOPinConfigure(GPIO_PA1_U0TX);
+    GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
+    GPIOPinConfigure(GPIO_PA0_U0RX);
+    GPIOPinConfigure(GPIO_PA1_U0TX);
     GPIOPinConfigure(GPIO_PA2_SSI0CLK);
     GPIOPinConfigure(GPIO_PA3_SSI0FSS);
     GPIOPinConfigure(GPIO_PA5_SSI0TX);
     GPIOPinConfigure(GPIO_PD0_SSI1CLK);
     GPIOPinConfigure(GPIO_PD1_SSI1FSS);
     GPIOPinConfigure(GPIO_PD3_SSI1TX);
-    //GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_4);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_5);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_6);
     GPIOPinTypeSSI(GPIO_PORTA_BASE, GPIO_PIN_5|GPIO_PIN_3|GPIO_PIN_2);
     GPIOPinTypeSSI(GPIO_PORTD_BASE, GPIO_PIN_3|GPIO_PIN_1|GPIO_PIN_0);
-    //GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
 }
-/*
+
 void
 UARTIntHandler(void){
     uint32_t ui32Status;
@@ -114,7 +110,10 @@ UARTInit(void){
 
 void
 SSIInit(void){
-
+    SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,16);
+    SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,11);
+    SSIEnable(SSI0_BASE);
+    SSIEnable(SSI1_BASE);
 }
 
 void
@@ -136,7 +135,7 @@ DataSend(uint32_t data1, uint32_t data2, uint32_t data3, uint32_t ui32Count){
         UARTCharPutNonBlocking(UART0_BASE, data3);
     }
 }
-*/
+
 void
 FreqRegBits(void){
     uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
@@ -149,7 +148,7 @@ FreqRegBits(void){
     }
 
 }
-/*
+
 void
 ADCInit(void){
     ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
@@ -177,25 +176,25 @@ ADCCutoffReader(void){
     //reads the "peak" value from the signal response to determine when to cut off the pulse counting
     uint32_t cutoffVoltage = 0.3; //the cut off value
     uint32_t ADCRipplevalue = ADCValue();//the value given by the ADC
-    uint32_t stopTF;
+    uint32_t returnValue;
     if(ADCRipplevalue > cutoffVoltage){
-        stopTF = 0;
+        returnValue = 0;
     }
     else if(ADCRipplevalue <= cutoffVoltage){
-        stopTF = 1;
+        returnValue = 1;
     }
-    return stopTF;
+    return returnValue;
 }
-*/
+
 int
 PulseCounter(void){
-    highVoltage = 0;
-    midVoltage = 0;
-    lowVoltage = 0;
+    highVoltage = 4.5;
+    midVoltage = 2.5;
+    lowVoltage = 1;
     while(ADCCutoffReader() == 0){
-        register uint32_t low = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
-        register uint32_t mid = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_5);
-        register uint32_t high = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_6);
+        uint32_t low = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
+        uint32_t mid = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_5);
+        uint32_t high = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_6);
         if((high & GPIO_PIN_6)){
             highVoltage += 1;
         }
@@ -206,7 +205,7 @@ PulseCounter(void){
             lowVoltage += 1;
         }
     }
-    //DataSend(highVoltage, midVoltage, lowVoltage, 16);
+    DataSend(highVoltage, midVoltage, lowVoltage, 16);
     return 1;
 }
 
@@ -231,8 +230,7 @@ SineWavePulse(void){
                 }
             SysCtlDelay(160000);
             SSIDataPut(SSI0_BASE, 0b00000100000000);
-            //j = PulseCounter();
-            j = 1;
+            j = PulseCounter();
 
         }
     }
@@ -273,16 +271,13 @@ DCVoltage(void){
 }
 
 int main(void){
+    SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
     PeriphEnable();
     PinConfig();
+    ADCInit();
+    UARTInit();
+    SSIInit();
     FreqRegBits();
-    //ADCInit();
-    //UARTInit();
-    SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
-    SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,16);
-    SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,11);
-    SSIEnable(SSI0_BASE);
-    SSIEnable(SSI1_BASE);
     voltCodeGenerator(voltage1, voltage2, voltage3, voltage4, refVoltage);
     DCVoltage();
     SysCtlDelay(100000);
