@@ -1,8 +1,9 @@
 // Christian Carter
 // Oct. 14 2019
 // Ong Lab
+// v1.5
 // Code for micro-controller EK-TM4C123GXL on the TI Tiva C Launchpad
-// Main goals for the code are to generate a square wave at a specific frequency for a period of time and then measure the response
+// Main goals for the code are to generate a sine wave at a specific frequency for a period of time and then measure the response
 // using the on-board ADC to count the number of oscillations in a given period of time.
 
 
@@ -11,7 +12,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <math.h>
-#include "stdlib.h"
+#include <stdlib.h>
+#include <string.h>
 #include "inc/hw_ints.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_ssi.h"
@@ -44,7 +46,7 @@ uint32_t low_bound = 10000;
 uint32_t high_bound = 2000000;
 uint32_t f_reg;
 uint32_t i;
-uint32_t frequencyRegister[2][1000];
+uint32_t frequencyRegister[2][1];
 uint32_t rows;
 uint32_t lowVoltage;
 uint32_t midVoltage;
@@ -67,6 +69,7 @@ uint32_t voltCode[4];
  * D0, D1, D3
  */
 
+
 void
 PeriphEnable(void){
     SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
@@ -74,29 +77,30 @@ PeriphEnable(void){
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+    SysCtlPeripheralReset(SYSCTL_PERIPH_ADC0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 }
 
 void
 PinConfig(void){
-    //GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
-    //GPIOPinConfigure(GPIO_PA0_U0RX);
-    //GPIOPinConfigure(GPIO_PA1_U0TX);
+    GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_2);
+    GPIOPinConfigure(GPIO_PA0_U0RX);
+    GPIOPinConfigure(GPIO_PA1_U0TX);
     GPIOPinConfigure(GPIO_PA2_SSI0CLK);
     GPIOPinConfigure(GPIO_PA3_SSI0FSS);
     GPIOPinConfigure(GPIO_PA5_SSI0TX);
     GPIOPinConfigure(GPIO_PD0_SSI1CLK);
     GPIOPinConfigure(GPIO_PD1_SSI1FSS);
     GPIOPinConfigure(GPIO_PD3_SSI1TX);
-    //GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6);
+    GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6);
     GPIOPinTypeSSI(GPIO_PORTA_BASE, GPIO_PIN_5|GPIO_PIN_3|GPIO_PIN_2);
     GPIOPinTypeSSI(GPIO_PORTD_BASE, GPIO_PIN_3|GPIO_PIN_1|GPIO_PIN_0);
-    //GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
 }
-/*
+
 void
 UARTIntHandler(void){
     uint32_t ui32Status;
@@ -114,7 +118,11 @@ UARTInit(void){
 
 void
 SSIInit(void){
-
+    SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
+    SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,16);
+    SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,11);
+    SSIEnable(SSI0_BASE);
+    SSIEnable(SSI1_BASE);
 }
 
 void
@@ -125,33 +133,32 @@ DataSend(uint32_t data1, uint32_t data2, uint32_t data3, uint32_t ui32Count){
     //}
     while(ui32Count--){
         // Write the next character to the UART.
-        UARTCharPutNonBlocking(UART0_BASE, data1);
+        UARTCharPutNonBlocking(UART0_BASE, "y");
     }
     while(ui32Count--){
         // Write the next character to the UART.
-        UARTCharPutNonBlocking(UART0_BASE, data2);
+        UARTCharPutNonBlocking(UART0_BASE,"b");
     }
     while(ui32Count--){
         // Write the next character to the UART.
-        UARTCharPutNonBlocking(UART0_BASE, data3);
+        UARTCharPutNonBlocking(UART0_BASE,"p");
     }
 }
-*/
-void
-FreqRegBits(void){
-    uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
-    uint32_t reg;
-    for(i = 0; i < rows; i++){
-        reg = (int)((low_bound + (STEP_SIZE * i)) * (5.368709));
-        //reg = (int)(((low_bound + (STEP_SIZE * i)) * pow(2,28))/50000000);
-        frequencyRegister[0][i] = (int)((reg % 16384) + 16384);
-        frequencyRegister[1][i] = (int)((reg / (2*2*2*2*2*2*2*2*2*2*2*2*2*2)) + 16384);
-    }
 
+void
+FreqRegBits(uint32_t step){
+   // uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
+    uint32_t reg;
+    //for(step = 0; step < rows; i++){
+    reg = (int)((low_bound + (STEP_SIZE * step)) * (5.368709));
+    //reg = (int)(((low_bound + (STEP_SIZE * i)) * pow(2,28))/50000000);
+    frequencyRegister[0][0] = (int)((reg % 16384) + 16384);
+    frequencyRegister[1][0] = (int)((reg / (2*2*2*2*2*2*2*2*2*2*2*2*2*2)) + 16384);
 }
-/*
+
 void
 ADCInit(void){
+//    ADCSequenceDisable(ADC0_BASE, 0);
     ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
     ADCSequenceStepConfigure(ADC0_BASE, 3, 0, (ADC_CTL_CH6 | ADC_CTL_IE | ADC_CTL_END));
     ADCSequenceEnable(ADC0_BASE, 3);
@@ -176,17 +183,16 @@ int
 ADCCutoffReader(void){
     //reads the "peak" value from the signal response to determine when to cut off the pulse counting
     uint32_t cutoffVoltage = 0.3; //the cut off value
-    uint32_t ADCRipplevalue = ADCValue();//the value given by the ADC
-    uint32_t stopTF;
-    if(ADCRipplevalue > cutoffVoltage){
+    uint32_t stopTF; //holds reset bool in binary
+    if(ADCValue() > cutoffVoltage){
         stopTF = 0;
     }
-    else if(ADCRipplevalue <= cutoffVoltage){
+    else if(ADCValue() <= cutoffVoltage){
         stopTF = 1;
     }
     return stopTF;
 }
-*/
+
 int
 PulseCounter(void){
     highVoltage = 0;
@@ -217,13 +223,13 @@ SineWavePulse(void){
     //frequency of 1000 Hz. The lower 14 bits will still be programmed in but there will be logic to determine if they're needed or not.
     //The chip writes LSB in the first write and then MSB in the second write
     for(i = 0; i < rows; i++){
-
+        FreqRegBits(i);
         uint32_t j = 0;
         while(j < 1){
             //SSIDataPut(SSI0_BASE, i);
             SSIDataPut(SSI0_BASE, 0x2100);
-            SSIDataPut(SSI0_BASE, frequencyRegister[1][i]);
-            SSIDataPut(SSI0_BASE, frequencyRegister[0][i]);
+            SSIDataPut(SSI0_BASE, frequencyRegister[1][0]);
+            SSIDataPut(SSI0_BASE, frequencyRegister[0][0]);
             SSIDataPut(SSI0_BASE, 0xC000);
             SSIDataPut(SSI0_BASE, 0x2000);
             while(SSIBusy(SSI0_BASE))
@@ -231,7 +237,7 @@ SineWavePulse(void){
                 }
             SysCtlDelay(160000);
             SSIDataPut(SSI0_BASE, 0b00000100000000);
-            //j = PulseCounter();
+            DataSend(1, 2, 3, 32);
             j = 1;
 
         }
@@ -275,14 +281,9 @@ DCVoltage(void){
 int main(void){
     PeriphEnable();
     PinConfig();
-    FreqRegBits();
     //ADCInit();
-    //UARTInit();
-    SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
-    SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,16);
-    SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,11);
-    SSIEnable(SSI0_BASE);
-    SSIEnable(SSI1_BASE);
+    UARTInit();
+    SSIInit();
     voltCodeGenerator(voltage1, voltage2, voltage3, voltage4, refVoltage);
     DCVoltage();
     SysCtlDelay(100000);
