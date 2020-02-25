@@ -100,7 +100,7 @@ PinConfig(void){
     GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
 }
-
+/*
 void
 UARTIntHandler(void){
     uint32_t ui32Status;
@@ -115,16 +115,16 @@ UARTInit(void){
     UARTIntEnable(UART0_BASE, UART_INT_RX | UART_INT_RT);
     IntMasterEnable();
 }
-
+*/
 void
 SSIInit(void){
     SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
-    SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,16);
-    SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,10000,11);
+    SSIConfigSetExpClk(SSI0_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_2,SSI_MODE_MASTER,5000,16);
+    SSIConfigSetExpClk(SSI1_BASE,SysCtlClockGet(),SSI_FRF_MOTO_MODE_0,SSI_MODE_MASTER,5000,11);
     SSIEnable(SSI0_BASE);
     SSIEnable(SSI1_BASE);
 }
-
+/*
 void
 DataSend(uint32_t data1, uint32_t data2, uint32_t data3, uint32_t ui32Count){
     //sends the pulse numbers from the pulse counter, through UART, to the computer
@@ -144,18 +144,18 @@ DataSend(uint32_t data1, uint32_t data2, uint32_t data3, uint32_t ui32Count){
         UARTCharPutNonBlocking(UART0_BASE,"p");
     }
 }
-
+*/
 void
 FreqRegBits(uint32_t step){
    // uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
     uint32_t reg;
     //for(step = 0; step < rows; i++){
-    reg = (int)((low_bound + (STEP_SIZE * step)) * (5.368709));
+    reg = (int)((low_bound + (STEP_SIZE * step)) * (10.73741824));
     //reg = (int)(((low_bound + (STEP_SIZE * i)) * pow(2,28))/50000000);
     frequencyRegister[0][0] = (int)((reg % 16384) + 16384);
     frequencyRegister[1][0] = (int)((reg / (2*2*2*2*2*2*2*2*2*2*2*2*2*2)) + 16384);
 }
-
+/*
 void
 ADCInit(void){
 //    ADCSequenceDisable(ADC0_BASE, 0);
@@ -215,7 +215,7 @@ PulseCounter(void){
     //DataSend(highVoltage, midVoltage, lowVoltage, 16);
     return 1;
 }
-
+*/
 void
 SineWavePulse(void){
     uint32_t rows = (int)((high_bound - low_bound)/STEP_SIZE);
@@ -228,16 +228,16 @@ SineWavePulse(void){
         while(j < 1){
             //SSIDataPut(SSI0_BASE, i);
             SSIDataPut(SSI0_BASE, 0x2100);
-            SSIDataPut(SSI0_BASE, frequencyRegister[1][0]);
-            SSIDataPut(SSI0_BASE, frequencyRegister[0][0]);
+            SSIDataPut(SSI0_BASE, 0x7FFF);//frequencyRegister[0][0]);
+            SSIDataPut(SSI0_BASE, 0x7FFF);//frequencyRegister[1][0]);
             SSIDataPut(SSI0_BASE, 0xC000);
             SSIDataPut(SSI0_BASE, 0x2000);
             while(SSIBusy(SSI0_BASE))
                 {
                 }
-            SysCtlDelay(160000);
-            SSIDataPut(SSI0_BASE, 0b00000100000000);
-            DataSend(1, 2, 3, 32);
+            SysCtlDelay(1600000);
+            //SSIDataPut(SSI0_BASE, 0b00000100000000);
+            //DataSend(1, 2, 3, 32);
             j = 1;
 
         }
@@ -282,7 +282,7 @@ int main(void){
     PeriphEnable();
     PinConfig();
     //ADCInit();
-    UARTInit();
+    //UARTInit();
     SSIInit();
     voltCodeGenerator(voltage1, voltage2, voltage3, voltage4, refVoltage);
     DCVoltage();
