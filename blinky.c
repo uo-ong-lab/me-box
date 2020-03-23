@@ -1,7 +1,7 @@
 // Christian Carter
 // Oct. 14 2019
 // Ong Lab
-// v1.6
+// v1.5
 // Code for micro-controller EK-TM4C123GXL on the TI Tiva C Launchpad
 // Main goals for the code are to generate a sine wave at a specific frequency for a period of time and then measure the response
 // using the on-board ADC to count the number of oscillations in a given period of time.
@@ -222,33 +222,16 @@ SineWavePulse(void){
     //highest frequency that can be in the first 14 bits of the frequency register is 976.5 Hz which is below the predetermined start
     //frequency of 1000 Hz. The lower 14 bits will still be programmed in but there will be logic to determine if they're needed or not.
     //The chip writes LSB in the first write and then MSB in the second write
-    /*
-    uint32_t h = 0;
-    FreqRegBits(0);
-    while(h < 1){
-        SSIDataPut(SSI0_BASE, 0x0100);
-        SSIDataPut(SSI0_BASE, 0x2100);
-        SSIDataPut(SSI0_BASE, frequencyRegister[0][0]);
-        SSIDataPut(SSI0_BASE, frequencyRegister[1][0]);
-        SSIDataPut(SSI0_BASE, 0xC000);
-        SSIDataPut(SSI0_BASE, 0x2000);
-        SSIDataPut(SSI0_BASE, 0xFEFF);
-        while(SSIBusy(SSI0_BASE)){}
-        SysCtlDelay(1600000);
-        h = 1;
-    }
-*/
-    for(i = 1; i < rows; i++){
+    for(i = 0; i < rows; i++){
         FreqRegBits(i);
         uint32_t j = 0;
         while(j < 1){
-            SSIDataPut(SSI0_BASE, 0x0100);
+            //SSIDataPut(SSI0_BASE, i);
             SSIDataPut(SSI0_BASE, 0x2100);
-            SSIDataPut(SSI0_BASE, frequencyRegister[0][0]);
-            SSIDataPut(SSI0_BASE, frequencyRegister[1][0]);
+            SSIDataPut(SSI0_BASE, 0x7FFF);//frequencyRegister[0][0]);
+            SSIDataPut(SSI0_BASE, 0x7FFF);//frequencyRegister[1][0]);
             SSIDataPut(SSI0_BASE, 0xC000);
             SSIDataPut(SSI0_BASE, 0x2000);
-            SSIDataPut(SSI0_BASE, 0xFEFF);
             while(SSIBusy(SSI0_BASE))
                 {
                 }
